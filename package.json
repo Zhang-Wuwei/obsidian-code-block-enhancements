@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "code-block-enhancements",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": "ZhangWuwei",
   "license": "MIT",
   "description": "Local Obsidian code-block indentation, structural folding and manual formatting.",

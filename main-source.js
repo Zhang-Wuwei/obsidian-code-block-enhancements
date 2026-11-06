@@ -16,7 +16,8 @@ const FORMAT_LANGUAGES = new Set(["js", "javascript", "jsx", "mjs", "cjs", "ts",
 function formatButton(doc, language, run, plugin, path, line) {
   const button = doc.createElement("button");
   button.type = "button";
-  button.className = "qn-format-button";
+  // 复用主题给原生复制按钮的外观；点击处理仍由本插件独立绑定。
+  button.className = "qn-format-button copy-code-button";
   button.dataset.qnFormatPath = path || "";
   button.dataset.qnFormatLine = String(line);
   button.dataset.qnFormatLanguage = language;
@@ -508,7 +509,7 @@ class FormatCodeWidget extends WidgetType {
       const leaf = this.plugin.app.workspace.getLeavesOfType("markdown").find(l => l.view.editor?.cm === view);
       return this.plugin.formatCodeBlock(leaf?.view, this.line);
     }, this.plugin, owner?.view.file?.path, this.line);
-    button.classList.add("qn-editor-format-button");
+    button.classList.add("qn-editor-format-button", "code-block-flair");
     button.dataset.qnBlock = String(this.start);
     button.dataset.qnKeyboardActive = String(this.active);
     return button;
@@ -544,7 +545,7 @@ function editorWrapping(plugin) {
         key: this,
         read: () => plugin.unloaded ? [] : Array.from(view.dom.querySelectorAll(".qn-editor-format-button")).map(button => {
           const host = button.closest(".cm-line");
-          const flair = host?.querySelector(".code-block-flair");
+          const flair = host?.querySelector(".code-block-flair:not(.qn-format-button)");
           if (!host) return null;
           const parent = host.getBoundingClientRect(), label = flair?.getBoundingClientRect();
           const height = 28;
@@ -1260,7 +1261,7 @@ module.exports = class CodeBlockEnhancements extends Plugin {
     this.managedFormatters?.dispose();
     this.formatResultPopup?.element.remove();
     this.formatResultPopup = null;
-    fenceSnapshotCache.clear();
+    require("./formatting.js").clearFenceSnapshots();
     for (const child of this.liveCalloutBlocks || []) this.removeChild(child);
     this.liveCalloutBlocks?.clear();
     this.clearEditorFolds();

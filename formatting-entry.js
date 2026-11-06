@@ -69,6 +69,7 @@ export function markdownFoldRanges(source) {
 
 // 只保留两个精确源码快照，不保留整棵 AST；显示定位和格式化复用同一份结果。
 const fenceSnapshots = new Map();
+export function clearFenceSnapshots() { fenceSnapshots.clear(); }
 export function findCodeBlocks(source) {
   if (fenceSnapshots.has(source)) return fenceSnapshots.get(source);
   const starts = [0];

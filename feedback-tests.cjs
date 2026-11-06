@@ -69,6 +69,25 @@ function setup(t) {
   return { Plugin, plugin, document, window, create, view, frame, frames };
 }
 
+test("format buttons share the native copy appearance while retaining their own action", async t => {
+  const { create, window } = setup(t);
+  let calls = 0;
+  const button = create(0, 0, async () => { calls++; return { ok: true, message: "已格式化" }; });
+  assert.ok(button.classList.contains("copy-code-button"));
+  button.dispatchEvent(new window.Event("click"));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls, 1);
+  assert.equal(button.dataset.qnFormatState, "success");
+});
+
+test("plugin unload completes after sharing the fence snapshot cache", t => {
+  const { plugin } = setup(t);
+  plugin.blocks = new Set();
+  plugin.clearEditorFolds = () => {};
+  assert.doesNotThrow(() => plugin.onunload());
+  assert.equal(plugin.unloaded, true);
+});
+
 test("new installations enable semicolons and embedded formatting, retaining saved preferences", async t => {
   for (const saved of [null, { formatEmbedded: false, formatSemi: false, formatSingleQuote: true, formatTrailingComma: "none", formatArrowParens: "avoid", formatSingleAttributePerLine: true }]) {
     const { plugin } = setup(t);
