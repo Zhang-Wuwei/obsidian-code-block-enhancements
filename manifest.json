@@ -1,0 +1,9 @@
+{
+  "id": "code-block-enhancements",
+  "name": "Code Block Enhancements",
+  "version": "0.4.2",
+  "minAppVersion": "1.14.5",
+  "description": "Keep wrapped code indented, fold code structures, and manually format fenced code blocks.",
+  "author": "ZhangWuwei",
+  "isDesktopOnly": true
+}

@@ -1,0 +1,235 @@
+/* 设置页沿用宿主控件和主题变量，只整理插件内部的层次与间距。 */
+.qn-settings .setting-item.qn-setting-width .setting-item-control input[type="number"] { width: 5.5em; max-width: 100%; text-align: center; font-variant-numeric: tabular-nums; }
+.qn-settings .qn-setting-error { color: var(--text-error); margin-top: 4px; }
+.qn-settings .qn-setting-width input[aria-invalid="true"] { border-color: var(--text-error); }
+.qn-settings .qn-settings-formatter { margin-inline-start: 0; }
+.qn-settings .qn-settings-formatter > .setting-item-heading { margin-block: 24px 8px; padding-block: 0; border: 0; }
+.qn-settings .qn-settings-formatter > .setting-item-heading .setting-item-name { font-size: var(--font-ui-medium); font-weight: var(--font-semibold); }
+.qn-settings .qn-settings-formatter > .qn-settings-subheading { margin-block: 24px 8px; }
+.qn-settings .qn-settings-formatter > .qn-settings-subheading .setting-item-name { font-size: var(--font-ui-small); color: var(--text-muted); }
+.qn-settings .setting-item-description { line-height: 1.5; }
+.qn-settings .qn-formatter-overview-card { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 16px; margin-block: 12px 24px; }
+.qn-settings .qn-formatter-overview { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: var(--font-ui-small); }
+.qn-settings .qn-formatter-overview caption { text-align: start; color: var(--text-normal); font-weight: var(--font-semibold); margin-bottom: 12px; }
+.qn-settings .qn-formatter-overview th,
+.qn-settings .qn-formatter-overview td { text-align: start; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--background-modifier-border); overflow-wrap: anywhere; line-height: 1.5; }
+.qn-settings .qn-formatter-overview thead th { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: var(--font-semibold); padding-top: 0; }
+.qn-settings .qn-formatter-overview thead th:first-child { width: 46%; }
+.qn-settings .qn-formatter-overview thead th:nth-child(2) { width: 30%; }
+.qn-settings .qn-formatter-overview thead th:last-child { width: 24%; }
+.qn-settings .qn-formatter-overview tbody th { font-weight: normal; }
+.qn-settings .qn-formatter-overview td:nth-child(2) { font-weight: var(--font-medium); }
+.qn-settings .qn-formatter-overview .qn-tool-note { display: block; color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; }
+.qn-settings .qn-formatter-overview tbody tr:last-child > * { border-bottom: 0; }
+.qn-settings .qn-formatter-download { font-size: var(--font-ui-small); color: var(--text-muted); margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); line-height: 1.5; }
+.qn-settings .qn-formatter-download p { margin-block: 0 8px; text-wrap: pretty; }
+.qn-settings .qn-formatter-download strong { color: var(--text-normal); font-weight: var(--font-medium); }
+.qn-settings .qn-settings-details { margin-top: 8px; color: var(--text-muted); font-size: var(--font-ui-small); }
+.qn-settings .qn-settings-details summary { cursor: pointer; width: fit-content; max-width: 100%; color: var(--text-accent); padding: 3px 6px; margin-inline-start: -6px; border-radius: var(--radius-s); line-height: 1.5; }
+.qn-settings .qn-settings-details summary:hover { background: var(--background-modifier-hover); }
+.qn-settings .qn-settings-details summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 3px; }
+.qn-settings .qn-settings-details-body { margin-top: 8px; padding: 8px 12px; border-inline-start: 2px solid var(--background-modifier-border); border-radius: 0 var(--radius-s) var(--radius-s) 0; background: var(--background-primary-alt); }
+.qn-settings .qn-settings-details-body p { margin-block: 0 8px; line-height: 1.5; }
+.qn-settings .qn-settings-details-body > :last-child { margin-bottom: 0; }
+.qn-settings .qn-settings-details pre { padding: 8px 10px; margin-block: 8px 0; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); background: var(--code-background); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.qn-settings .qn-settings-details code { font-size: var(--font-ui-small); }
+
+/* 父代码容器：逐行元素之间的换行文本只供复制，不额外生成视觉空行。 */
+.markdown-rendered pre:has(> .qn-format-button) {
+  position: relative;
+}
+
+/* 格式化与原生复制按钮并列，只在悬停或键盘聚焦时显示。 */
+.markdown-rendered pre > .qn-format-button,
+.markdown-source-view .qn-editor-format-button {
+  position: absolute;
+  inset-inline-end: 40px;
+  top: 8px;
+  width: 32px;
+  height: 28px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.qn-format-button svg { width: 16px; height: 16px; }
+.qn-format-result-popup {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(380px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--background-modifier-message, var(--interactive-accent));
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-s);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+.markdown-rendered pre:hover > .qn-format-button,
+.markdown-rendered pre:focus-within > .qn-format-button,
+.markdown-source-view .cm-line:hover .qn-editor-format-button,
+.markdown-source-view .cm-active .qn-editor-format-button,
+.markdown-source-view .qn-editor-format-button[data-qn-hover="true"],
+.markdown-source-view .qn-editor-format-button[data-qn-keyboard-active="true"],
+.markdown-source-view .qn-editor-format-button:focus-visible { opacity: 1; }
+.qn-format-button[data-qn-format-state="success"],
+.qn-format-button[data-qn-format-state="error"] { opacity: 1 !important; }
+.qn-format-button[data-qn-format-state="success"] svg { color: var(--text-success, var(--color-green)); }
+.qn-format-button[data-qn-format-state="error"] svg { color: var(--text-error); }
+.markdown-rendered pre > .qn-format-button:hover,
+.markdown-source-view .qn-editor-format-button:hover,
+.markdown-rendered pre > .qn-format-button:focus-visible,
+.markdown-source-view .qn-editor-format-button:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.markdown-rendered pre > .qn-format-button[aria-disabled="true"],
+.markdown-source-view .qn-format-button[aria-disabled="true"] { color: var(--text-faint); cursor: not-allowed; }
+.qn-format-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.markdown-source-view .cm-line:has(.qn-editor-format-button) { position: relative; }
+.markdown-source-view .qn-editor-format-button { top: 0; inset-inline-end: 8px; width: 32px; height: 28px; min-height: 28px; }
+.markdown-source-view .qn-editor-format-button svg { width: 16px; height: 16px; }
+@media (prefers-reduced-motion: reduce) {
+  .markdown-rendered pre > .qn-format-button,
+  .markdown-source-view .qn-editor-format-button { transition: none; }
+}
+
+.markdown-rendered pre > code.qn-wrapped-code {
+  display: block;
+  white-space: normal;
+}
+
+/* 阅读模式的源代码行：第一行保留原始空格，续行按计算出的缩进对齐。 */
+.markdown-rendered pre > code.qn-wrapped-code > .qn-code-line {
+  display: block;
+  box-sizing: border-box;
+  min-height: 1lh;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  position: relative;
+  padding-inline-start: min(var(--qn-indent, 0ch), var(--qn-indent-cap, 10000px));
+  text-indent: calc(-1 * min(var(--qn-indent, 0ch), var(--qn-indent-cap, 10000px)));
+}
+
+/* 内部高亮元素：不再继承负缩进，保留原生 token 配色。 */
+.markdown-rendered pre > code.qn-wrapped-code > .qn-code-line * {
+  text-indent: 0;
+}
+
+/* 保留文本结尾的换行，但不因此多显示一行。 */
+.markdown-rendered pre > code.qn-wrapped-code > .qn-final-empty {
+  min-height: 0;
+}
+
+/* 折叠只隐藏视觉行，不从 code 中移除文本，复制按钮仍能取得完整代码。 */
+.markdown-rendered pre > code.qn-wrapped-code > .qn-code-line[hidden] {
+  display: none;
+}
+
+/* 箭头使用代码原有的左侧留白，不再为隐藏的控件推移代码。 */
+.qn-code-line > .qn-fold-toggle,
+.cm-line .qn-fold-toggle {
+  font: inherit;
+  position: absolute;
+  inset-inline-start: calc(var(--qn-base-inset, 0px) + var(--qn-source-indent, 0ch) - 1.5ch);
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2ch;
+  height: 1lh;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-indent: 0;
+  opacity: 0;
+}
+
+/* 只显示当前交互行的箭头；键盘聚焦按钮时仍可见，且不改变布局。 */
+.qn-code-line:hover > .qn-fold-toggle,
+.qn-code-line:focus-within > .qn-fold-toggle,
+.cm-line.qn-editor-code-line:hover .qn-fold-toggle,
+.cm-line.qn-editor-code-line.cm-active .qn-fold-toggle,
+.cm-line.qn-editor-code-line:focus-within .qn-fold-toggle {
+  opacity: 1;
+}
+
+.qn-fold-toggle svg { width: 12px; height: 12px; }
+
+.qn-fold-toggle.is-collapsed svg { transform: rotate(-90deg); }
+
+.markdown-rendered .qn-fold-placeholder,
+.markdown-source-view .qn-editor-code-line .cm-foldPlaceholder {
+  font: inherit;
+  display: inline-block;
+  text-align: center;
+  box-sizing: border-box;
+  min-width: 2.2ch;
+  height: auto;
+  margin-inline: 0.15ch;
+  padding: 0 0.2ch;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  line-height: 1.15;
+  vertical-align: baseline;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* 阅读模式用文字省略号参与基线排版，不写入代码文本；编辑模式保留原生占位文字。 */
+.qn-fold-placeholder::before {
+  content: "...";
+  font: inherit;
+}
+
+.markdown-rendered .qn-fold-placeholder:hover,
+.markdown-source-view .qn-editor-code-line .cm-foldPlaceholder:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.qn-code-line > span[hidden] { display: none; }
+
+/* 原生箭头也可能嵌在高亮 span 内；只替换已有插件入口的行，其他行保留回退。 */
+.markdown-source-view.mod-cm6 .qn-editor-code-line:has(.qn-fold-toggle) .cm-fold-indicator {
+  display: none !important;
+}
+
+/* 沿用宿主代码行的基础留白，仅为续行补偿源码缩进。 */
+.markdown-source-view.mod-cm6 .cm-line.qn-editor-code-line {
+  position: relative;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-codeblock.qn-editor-code-line {
+  --qn-base-inset: var(--size-4-4);
+  position: relative;
+  padding-left: calc(min(var(--qn-indent, 0ch), var(--qn-indent-cap, 10000px)) + var(--qn-base-inset));
+  text-indent: calc(-1 * min(var(--qn-indent, 0ch), var(--qn-indent-cap, 10000px)));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 编辑器中的高亮片段不单独应用首行缩进。 */
+.markdown-source-view.mod-cm6 .qn-editor-code-line span {
+  text-indent: 0;
+}
