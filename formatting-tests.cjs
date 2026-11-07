@@ -5,6 +5,17 @@ const { planFormatting, findCodeBlocks, applyChanges, locateCodeBlock } = requir
 const fence = (lang, code) => `\`\`\`${lang}\n${code}\n\`\`\``;
 const cursor = source => [{ from: source.indexOf("const"), to: source.indexOf("const") }];
 
+test("fenced strings in Obsidian frontmatter are never treated as Markdown code blocks", async () => {
+  for (const eol of ['\n', '\r\n']) for (const bom of ['', '\uFEFF']) {
+    const metadata = bom + '---\nexample: |\n  ```js\n  const x={a:1};\n  ```\n---\n\n';
+    const source = (metadata + fence('js', 'const data={b:2};')).replace(/\n/g, eol);
+    const blocks = findCodeBlocks(source);
+    assert.equal(blocks.length, 1);
+    const plan = await planFormatting(source, [{ from: blocks[0].from, to: blocks[0].from }]);
+    assert.ok(applyChanges(source, plan.changes).startsWith(metadata.replace(/\n/g, eol)));
+  }
+});
+
 test("fence snapshot reuse is immutable, bounded and invalidates on source changes", () => {
   const source = '> ```java\n> class A{}\n> ```';
   const blocks = findCodeBlocks(source);

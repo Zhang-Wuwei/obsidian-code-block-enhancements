@@ -414,18 +414,19 @@ class WrappedCode extends MarkdownRenderChild {
 
 function editorBlocks(state) {
   const events = new Map();
-  syntaxTree(state).iterate({ enter(node) {
-    const begin = node.name.includes("HyperMD-codeblock-begin");
-    const end = node.name.includes("HyperMD-codeblock-end");
-    if (begin || end) events.set(state.doc.lineAt(node.from).from, begin ? "begin" : "end");
-  } });
-  // 源码视图可能把引用中的围栏解析成行内代码，不能只依赖宿主的 codeblock token。
+  // 完整围栏索引不依赖宿主语法树的后台解析进度；正文内单行编辑可安全映射既有范围。
   const source = state.doc.toString();
-  if (/^[\t ]*(?:[-+*][\t ]+|\d+[.)][\t ]+)?>/m.test(source)) for (const block of snapshotBlocks(source)) {
-    if (!block.closed || !block.quoteRanges?.length) continue;
-    const from = state.doc.line(block.line).from, to = state.doc.lineAt(block.bodyTo).from;
-    for (const position of events.keys()) if (position >= from && position <= to) events.delete(position);
-    events.set(from, "begin"); events.set(to, "end");
+  if (source.length <= 2000000) {
+    for (const block of snapshotBlocks(source)) {
+      if (!block.closed) continue;
+      events.set(state.doc.line(block.line).from, "begin");
+      events.set(state.doc.lineAt(block.bodyTo).from, "end");
+    }
+  } else {
+    syntaxTree(state).iterate({ enter(node) {
+      const begin = node.name.includes("HyperMD-codeblock-begin"), end = node.name.includes("HyperMD-codeblock-end");
+      if (begin || end) events.set(state.doc.lineAt(node.from).from, begin ? "begin" : "end");
+    } });
   }
   const blocks = [];
   let open = null;
@@ -433,46 +434,82 @@ function editorBlocks(state) {
     if (kind === "begin") open = state.doc.lineAt(from);
     else if (open) {
       const close = state.doc.lineAt(from);
-      const metadata = /(?:`{3,}|~{3,})(.*)$/.exec(open.text)?.[1] || "";
-      const options = parseOptions(metadata);
-      const prefix = open.text.slice(0, open.text.search(/`{3,}|~{3,}/));
-      const quoteCount = (prefix.match(/>/g) || []).length;
-      const sourceLines = [], offsets = [], sourceStarts = [];
-      let sourceLength = 0;
-      for (let number = open.number + 1; number < close.number; number++) {
-        const line = state.doc.line(number);
-        let removed = 0;
-        if (quoteCount) {
-          const container = new RegExp(`^(?:\\s*> ?){${quoteCount}}`).exec(line.text)?.[0] || "";
-          removed = container.length;
-        } else if (prefix.trim() === "") removed = line.text.startsWith(prefix) ? prefix.length : 0;
-        else if (/^\s*[-+*]\s/.test(prefix)) removed = Math.min(prefix.length, line.text.match(/^\s*/)[0].length);
-        const text = line.text.slice(removed);
-        sourceStarts.push(sourceLength);
-        offsets.push(line.from + removed);
-        sourceLines.push(text);
-        sourceLength += text.length + 1;
-      }
-      const source = sourceLines.join("\n");
-      const regions = foldRegions(source, options.language, state.tabSize).map(region => {
-        let end = region.to;
-        // 有闭括号的结构保留结束行，和 VS Code 的逐行折叠观感一致。
-        if (sourceLines[region.endLine]?.slice(region.endColumn).trim()) {
-          const newline = source.lastIndexOf("\n", region.to - 1);
-          if (newline > region.from) end = newline;
-        }
-        const endLine = end === region.to ? region.endLine : Math.max(region.startLine, region.endLine - 1);
-        return {
-          from: offsets[region.startLine] + region.startColumn,
-          to: offsets[endLine] + end - sourceStarts[endLine],
-          line: state.doc.lineAt(offsets[region.startLine]).from
-        };
-      }).filter(region => region.to > region.from);
-      blocks.push({ open, close, options, regions, quoteCount });
+      blocks.push(editorBlock(state, open, close));
       open = null;
     }
   }
   return blocks;
+}
+
+function editorBlock(state, open, close) {
+  const metadata = /(?:`{3,}|~{3,})(.*)$/.exec(open.text)?.[1] || "";
+  const options = parseOptions(metadata);
+  const prefix = open.text.slice(0, open.text.search(/`{3,}|~{3,}/));
+  const quoteCount = (prefix.match(/>/g) || []).length;
+  const sourceLines = [], offsets = [], sourceStarts = [];
+  let sourceLength = 0;
+  for (let number = open.number + 1; number < close.number; number++) {
+    const line = state.doc.line(number);
+    let removed = 0;
+    if (quoteCount) {
+      const container = new RegExp(`^(?:\\s*> ?){${quoteCount}}`).exec(line.text)?.[0] || "";
+      removed = container.length;
+    } else if (prefix.trim() === "") removed = line.text.startsWith(prefix) ? prefix.length : 0;
+    else if (/^\s*[-+*]\s/.test(prefix)) removed = Math.min(prefix.length, line.text.match(/^\s*/)[0].length);
+    const text = line.text.slice(removed);
+    sourceStarts.push(sourceLength);
+    offsets.push(line.from + removed);
+    sourceLines.push(text);
+    sourceLength += text.length + 1;
+  }
+  const source = sourceLines.join("\n");
+  const regions = foldRegions(source, options.language, state.tabSize).map(region => {
+    let end = region.to;
+    // 有闭括号的结构保留结束行，和 VS Code 的逐行折叠观感一致。
+    if (sourceLines[region.endLine]?.slice(region.endColumn).trim()) {
+      const newline = source.lastIndexOf("\n", region.to - 1);
+      if (newline > region.from) end = newline;
+    }
+    const endLine = end === region.to ? region.endLine : Math.max(region.startLine, region.endLine - 1);
+    return {
+      from: offsets[region.startLine] + region.startColumn,
+      to: offsets[endLine] + end - sourceStarts[endLine],
+      line: state.doc.lineAt(offsets[region.startLine]).from
+    };
+  }).filter(region => region.to > region.from);
+  return { open, close, options, regions, quoteCount };
+}
+
+// 只优化不能改变围栏/容器边界的单行编辑。换行、围栏、引用前缀及复杂 Markdown 改动走完整重建。
+function remapEditorBlocks(blocks, update) {
+  const { changes, startState, state } = update, touched = new Set();
+  if (startState.doc.length > 2000000 || state.doc.length > 2000000) return null;
+  let safe = true;
+  changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+    if (!safe) return;
+    const before = startState.doc.lineAt(fromA), after = state.doc.lineAt(fromB);
+    if (toA > before.to || toB > after.to || inserted.lines !== 1) { safe = false; return; }
+    const block = blocks.find(b => fromA <= b.close.to && toA >= b.open.from);
+    if (block) {
+      if (before.number <= block.open.number || before.number >= block.close.number ||
+          /`{3,}|~{3,}/.test(before.text + after.text)) { safe = false; return; }
+      const prefix = block.quoteCount ? new RegExp(`^(?:\\s*> ?){${block.quoteCount}}[\\t ]*`) : /^\s*/;
+      const oldPrefix = prefix.exec(before.text)?.[0], newPrefix = prefix.exec(after.text)?.[0];
+      if (oldPrefix === undefined || oldPrefix !== newPrefix || fromA < before.from + oldPrefix.length) { safe = false; return; }
+      touched.add(block);
+    } else if (!(/^\p{L}/u.test(before.text) && /^\p{L}/u.test(after.text)) || /[<>]/.test(before.text + after.text)) {
+      safe = false;
+    }
+  }, true);
+  if (!safe) return null;
+  return blocks.map(block => {
+    const open = state.doc.lineAt(changes.mapPos(block.open.from, 1));
+    const close = state.doc.lineAt(changes.mapPos(block.close.from, 1));
+    if (touched.has(block)) return editorBlock(state, open, close);
+    return { ...block, open, close, regions: block.regions.map(r => ({
+      from: changes.mapPos(r.from, 1), to: changes.mapPos(r.to, -1), line: changes.mapPos(r.line, 1)
+    })) };
+  });
 }
 
 class StructureFoldWidget extends WidgetType {
@@ -570,6 +607,10 @@ function editorWrapping(plugin) {
           from: update.changes.mapPos(r.from, 1), to: update.changes.mapPos(r.to, -1)
         })).filter(r => r.to > r.from));
       }
+      if (update.docChanged && this.doc === update.startState.doc && this.blocks) {
+        const mapped = remapEditorBlocks(this.blocks, update);
+        if (mapped) { this.blocks = mapped; this.doc = update.state.doc; }
+      }
       if (this.revision !== plugin.revision || update.docChanged || update.viewportChanged || update.geometryChanged || update.selectionSet || update.transactions.some(t => t.effects.some(e => e.is(foldEffect) || e.is(unfoldEffect))) ||
           syntaxTree(update.startState) !== syntaxTree(update.state)) {
         this.decorations = this.build(update.view);
@@ -578,7 +619,7 @@ function editorWrapping(plugin) {
     }
     build(view) {
       this.revision = plugin.revision;
-      if (this.doc !== view.state.doc || this.tree !== syntaxTree(view.state)) {
+      if (this.doc !== view.state.doc || !this.blocks || view.state.doc.length > 2000000 && this.tree !== syntaxTree(view.state)) {
         this.doc = view.state.doc;
         this.tree = syntaxTree(view.state);
         this.blocks = editorBlocks(view.state);

@@ -6,6 +6,90 @@ const vm = require("node:vm");
 const { foldRegions } = require("./folding.js");
 const { parseHTML } = require("linkedom");
 
+function incrementalHarness() {
+  const counts = { markdown: 0, folds: 0 };
+  const sandbox = { module: { exports: {} }, require(name) {
+    if (name === "obsidian") return { Plugin: class {}, PluginSettingTab: class {}, MarkdownRenderChild: class {} };
+    if (name === "@codemirror/view") return { WidgetType: class {} };
+    if (name === "@codemirror/state") return {};
+    if (name === "@codemirror/language") return { syntaxTree: () => ({ iterate() {} }) };
+    if (name === "./folding.js") return { foldRegions(...args) { counts.folds++; return foldRegions(...args); } };
+    if (name === "./formatting.js") return { ...require(name), findCodeBlocks(source) { counts.markdown++; return require(name).findCodeBlocks(source); } };
+    return require(name);
+  } };
+  vm.runInNewContext(fs.readFileSync(`${__dirname}/main-source.js`, "utf8") + "\nmodule.exports.editorBlocks=editorBlocks; module.exports.remapEditorBlocks=remapEditorBlocks;", sandbox);
+  return { ...sandbox.module.exports, counts };
+}
+
+test("ordinary prose and IME replacements remap code ranges without reparsing Markdown or languages", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  let state = EditorState.create({ doc: '中文正文\n\n```js\nfunction run() {\n  return 1;\n}\n```\n\n> ```python\n> def run():\n>   return 1\n> ```\n\n尾部正文' });
+  let blocks = h.editorBlocks(state);
+  assert.equal(blocks.length, 2);
+  const before = { ...h.counts };
+  for (const change of [{ from: 2, insert: 'zhong' }, { from: 2, to: 7, insert: '中' }, { from: 2, to: 3, insert: '' }]) {
+    const tr = state.update({ changes: change });
+    blocks = h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes });
+    assert.ok(blocks);
+    for (const b of blocks) {
+      assert.match(tr.state.doc.lineAt(b.open.from).text, /```/);
+      for (const r of b.regions) assert.ok(r.from < r.to && r.to <= b.close.from);
+    }
+    state = tr.state;
+  }
+  assert.deepEqual(h.counts, before);
+});
+
+test("code edits refresh only their own fold ranges; structural edits refuse the fast path", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  const state = EditorState.create({ doc: '中文正文\n\n```js\nfunction run() {\n  return 1;\n}\n```\n\n```python\ndef run():\n  return 1\n```' });
+  const blocks = h.editorBlocks(state), before = { ...h.counts }, pos = state.doc.toString().indexOf('return 1');
+  const tr = state.update({ changes: { from: pos + 7, to: pos + 8, insert: '2' } });
+  const mapped = h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes });
+  assert.ok(mapped);
+  assert.equal(h.counts.markdown, before.markdown);
+  assert.equal(h.counts.folds, before.folds + 1);
+  for (const change of [{ from: 2, insert: '\n' }, { from: blocks[0].open.from, insert: '~' }, { from: pos, insert: '```' }, { from: 0, to: 4, insert: '>[!note]' }]) {
+    const t = state.update({ changes: change });
+    assert.equal(h.remapEditorBlocks(blocks, { startState: state, state: t.state, changes: t.changes }), null);
+  }
+});
+
+test("incremental results match a fresh index, including multi-edits, lists and quoted code", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  let state = EditorState.create({ doc: '中文正文\n\n- item\n\n  ```js\n  function f() {\n    return 1;\n  }\n  ```\n\n> > ```python\n> > def f():\n> >   return 1\n> > ```\n\n最后正文' });
+  let blocks = h.editorBlocks(state);
+  for (let i = 0; i < 30; i++) {
+    const text = state.doc.toString(), pos = text.indexOf(i % 2 ? 'return 1' : '中文正文');
+    const tr = state.update({ changes: [{ from: pos + 2, insert: i % 2 ? ' ' : '字' }, { from: text.lastIndexOf('正文'), insert: '新' }] });
+    const mapped = h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes });
+    assert.ok(mapped);
+    assert.equal(JSON.stringify(mapped), JSON.stringify(h.editorBlocks(tr.state)));
+    blocks = mapped; state = tr.state;
+  }
+});
+
+test("blank lines and HTML terminators always use a full structural rebuild", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  for (const doc of ['<div>\n中文正文\n```js\nx=1\n```', '<script>\n文字 </script>\n\n```js\nx=1\n```']) {
+    const state = EditorState.create({ doc }), blocks = h.editorBlocks(state), from = doc.indexOf('文字') >= 0 ? doc.indexOf('</script>') : doc.indexOf('中文正文');
+    const tr = state.update({ changes: { from, to: from + (doc.includes('</script>') ? 9 : 4), insert: '' } });
+    assert.equal(h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes }), null);
+  }
+});
+
+test("quote/list indentation changes invalidate the mapped fence index", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  for (const marker of ['-', '1.']) {
+    const indent = ' '.repeat(marker.length + 1);
+    const state = EditorState.create({ doc: `> ${marker} \`\`\`js\n> ${indent}function f() {\n> ${indent}  return 1;\n> ${indent}}\n> ${indent}\`\`\`` });
+    const blocks = h.editorBlocks(state), from = state.doc.line(2).from + 2;
+    assert.equal(blocks.length, 1);
+    const tr = state.update({ changes: { from, to: from + indent.length, insert: '' } });
+    assert.equal(h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes }), null);
+  }
+});
+
 test("languages without a structural provider fall back to nested indentation ranges", () => {
   const cases = {
     graphql: 'query Demo {\n  users {\n    id\n  }\n}',
@@ -142,7 +226,9 @@ test("quoted fences get editor controls even when the host only parses them as i
   assert.equal(found[0].open.number, 3); assert.equal(found[0].close.number, 5);
   assert.equal(found[0].options.language, "python");
   assert.equal(blocks(source + source).length, 2);
-  assert.equal(blocks('```markdown\n> ```python\n> x=1\n> ```\n```').length, 0);
+  const outer = blocks('```markdown\n> ```python\n> x=1\n> ```\n```');
+  assert.equal(outer.length, 1);
+  assert.equal(outer[0].options.language, "markdown");
   assert.equal(blocks('> ```python\n> x=1\n').length, 0);
   assert.equal(blocks('> > ~~~python\n> > x=1\n> > ~~~').length, 1);
 });

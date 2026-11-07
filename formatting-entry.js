@@ -22,7 +22,11 @@ const plugins = [babel, estree, typescript, html, postcss, yaml, graphql];
 
 function parseMarkdown(source) {
   const bom = source.charCodeAt(0) === 0xfeff;
-  const root = fromMarkdown(bom ? source.slice(1) : source);
+  let text = bom ? source.slice(1) : source;
+  // Obsidian 的 YAML 属性不是 Markdown 正文；等长遮蔽可避免属性字符串中的围栏吞掉正文范围。
+  const metadata = /^---[\t ]*\r?\n(?:[\s\S]*?\r?\n)?---[\t ]*(?:\r?\n|$)/.exec(text);
+  if (metadata) text = metadata[0].replace(/[^\r\n]/g, " ") + text.slice(metadata[0].length);
+  const root = fromMarkdown(text);
   // Markdown 解析器会忽略 BOM；源码偏移必须仍指向原始字符串，不能吞掉这个字节标记。
   if (bom) {
     const restoreOffsets = node => {
