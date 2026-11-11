@@ -42,4 +42,4 @@ Codex 独立审查席位重点检查源码写入边界，没有发现可证实�
 
 [插件提交要求](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins)要求使用 Node.js/Electron API 的插件限定桌面版，manifest 已设 isDesktopOnly=true。Windows x64 / Obsidian 1.15.0 是本轮完整实测环境；其他桌面系统未实测，Python 目前明确只适配 Windows x64。
 
-[官方提交流程](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)要求公开源码仓库、与 manifest 版本完全匹配的 GitHub Release，以及 main.js、manifest.json、styles.css 附件。准备流程不等于已经发布；相关账号、远端地址和最终提交需另行处理。
+[官方提交流程](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)要求公开发行仓库、与 manifest 版本完全匹配的 GitHub Release，以及 main.js、manifest.json、styles.css 附件。源码可以在同一公开仓库维护，也可以放在单独的私有仓库，并授权官方 GitHub App 读取和核对构建，见[私有源码仓库接入说明](https://docs.obsidian.md/community-directory/manage-entry)。本项目按公开源码仓库方案准备；准备流程不等于已经发布，实际仓库可见性、远端地址和最终提交仍需按用户决定执行。
