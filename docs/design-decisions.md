@@ -4,7 +4,7 @@
 
 ## 产品与职责
 
-插件显示名、ID 和源码仓库名统一为 Code Block Enhancements / code-block-enhancements，作者为 ZhangWuwei。它是代码块功能增强，不是主题，也不是完整 IDE 或笔记执行环境。
+插件显示名为 Code Block Enhancements，插件 ID 为 `code-block-enhancements`，GitHub 源码仓库名为 `obsidian-code-block-enhancements`，作者为 ZhangWuwei。仓库名前缀表明 Obsidian 生态归属，不改变插件 ID 或安装目录。它是代码块功能增强，不是主题，也不是完整 IDE 或笔记执行环境。
 
 | 层级 | 负责 | 不负责 |
 | --- | --- | --- |

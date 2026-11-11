@@ -19,7 +19,7 @@ GitHub Actions 在 `main` 推送、Pull Request 和标签推送时，在 Windows
 
 顺序为：检查差异和隐私 → 本地 check 与许可检查 → 提交 → 推送并确认 CI → 建立并推送版本标签 → 核对标签 CI → 按授权创建 Release → 按授权处理社区目录。宿主三视图和笔记完整性仍须在本地测试库独立验收，不能用 CI 绿色代替。
 
-标签与附件要求依据 [Obsidian 官方发布说明](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)。仓库名可使用 `obsidian-` 前缀表达生态归属，但插件 ID 保持 `code-block-enhancements`；官方要求 ID 不包含 `obsidian`。
+标签与附件要求依据 [Obsidian 官方发布说明](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)。源码仓库为 [Zhang-Wuwei/obsidian-code-block-enhancements](https://github.com/Zhang-Wuwei/obsidian-code-block-enhancements)，插件 ID 保持 `code-block-enhancements`；官方要求 ID 不包含 `obsidian`。
 
 ## 两种发布范围
 
