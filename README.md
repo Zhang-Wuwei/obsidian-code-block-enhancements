@@ -6,7 +6,7 @@ Enhance Obsidian code blocks with wrapped-line indentation, structural folding, 
 
 源码仓库 / Source: [Zhang-Wuwei/obsidian-code-block-enhancements](https://github.com/Zhang-Wuwei/obsidian-code-block-enhancements)
 
-当前版本 **0.4.5 为桌面版本地试用版**，尚未提交官方社区目录。当前依赖下载方案存在上架政策阻断，见[验收与发布状态](docs/release-readiness.md)。
+当前版本 **[0.4.5 为桌面版公开试用发行](https://github.com/Zhang-Wuwei/obsidian-code-block-enhancements/releases/tag/0.4.5)**，尚未提交官方社区目录。当前依赖下载方案存在上架政策阻断，见[验收与发布状态](docs/release-readiness.md)。
 
 **显示功能不修改 Markdown；只有手动格式化会修改当前代码围栏内部。** 插件沿用 Obsidian 的字体、配色与语法高亮，不自带主题，不执行代码。
 

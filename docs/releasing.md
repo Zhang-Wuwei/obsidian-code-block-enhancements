@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-当前源码、测试库与正式库均为 0.4.5。源码已公开推送至 GitHub；GitHub Release 和官方社区提交尚未执行。当前首次使用时安装格式化组件的方案存在官方政策阻断，不能将“本地测试通过”写成“可直接上架”。详见[验收与发布状态](release-readiness.md)。
+当前源码、测试库与正式库均为 0.4.5。源码已公开推送至 GitHub，[0.4.5 Release](https://github.com/Zhang-Wuwei/obsidian-code-block-enhancements/releases/tag/0.4.5) 已作为 Pre-release 公开试用发行，官方社区提交尚未执行。当前首次使用时安装格式化组件的方案存在官方政策阻断，不能将“本地测试通过”写成“可直接上架”。详见[验收与发布状态](release-readiness.md)。
 
 ## 版本、分支与标签约定
 
