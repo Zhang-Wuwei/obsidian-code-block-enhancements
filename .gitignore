@@ -7,12 +7,26 @@ main.js
 folding.js
 formatting.js
 data.json
+.obsidian/
+.npmrc
 .local-backups/
 *.log
 .DS_Store
 
 # Local instructions, review transcripts, screenshots and personal machine state.
 AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agents/
+.codex/
+.claude/
+.gemini/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
 docs/*
 !docs/development.md
 !docs/releasing.md
