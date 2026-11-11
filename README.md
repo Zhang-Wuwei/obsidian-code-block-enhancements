@@ -2,6 +2,8 @@
 
 Obsidian 代码块增强：软换行后的续行缩进、代码内部结构折叠，以及按钮触发的单块格式化。
 
+Enhance Obsidian code blocks with wrapped-line indentation, structural folding, and manual formatting.
+
 当前版本 **0.4.5 为桌面版本地试用版**，尚未提交官方社区目录。当前依赖下载方案存在上架政策阻断，见[验收与发布状态](docs/release-readiness.md)。
 
 **显示功能不修改 Markdown；只有手动格式化会修改当前代码围栏内部。** 插件沿用 Obsidian 的字体、配色与语法高亮，不自带主题，不执行代码。
@@ -139,7 +141,7 @@ npm run release
 
 `main.js`、`folding.js`、`formatting.js` 是生成文件，不手改。正式包只需 `main.js`；另外两个 bundle 用于开发测试。
 
-详细流程与范围见 [开发与验证](docs/development.md)、[发布检查](docs/releasing.md)、[变更记录](docs/CHANGELOG.md)。功能取舍、外观分工与不能丢失的约束见 [设计决策](docs/design-decisions.md)。
+欢迎用中文或英文反馈问题，贡献前请阅读[贡献指南 / Contributing](CONTRIBUTING.md)。详细流程与范围见 [开发与验证](docs/development.md)、[发布检查](docs/releasing.md)、[变更记录](docs/CHANGELOG.md)。功能取舍、外观分工与不能丢失的约束见 [设计决策](docs/design-decisions.md)。
 
 ## 已知限制与后续边界
 
