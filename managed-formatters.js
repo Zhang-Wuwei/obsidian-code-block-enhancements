@@ -86,9 +86,22 @@ class ManagedFormatters {
       this.onStatus("正在使用 Black 格式化…");
       return worker.format(source);
     }
-    const wasm = await this.ensure(ASSETS.clang); this.check();
+    let wasm;
+    if (!this.clangInitialized) {
+      this.clangSetup ??= this.ensure(ASSETS.clang).catch(error => { this.clangSetup = null; throw error; });
+      wasm = new Uint8Array(await this.clangSetup);
+    }
+    this.check();
     this.onStatus("正在使用 clang-format 格式化…");
-    return formatClang(source, language, new Uint8Array(wasm));
+    try {
+      const result = await formatClang(source, language, wasm);
+      this.clangInitialized = true;
+      this.clangSetup = null; // WASM 实例已持有资源，不额外常驻原始下载字节。
+      return result;
+    } catch (error) {
+      if (!this.clangInitialized) this.clangSetup = null;
+      throw error;
+    }
   }
   async setupBlack() {
     const { runtime, wheels } = require("./black-runtime-assets.js");

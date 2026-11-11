@@ -48,6 +48,32 @@ test("C dispatch passes verified bytes and language to the WASM formatter", asyn
   });
   assert.equal(result, "int x;\n"); assert.equal(s.requests(), 0);
 });
+
+test("repeated C formatting reads verified WASM once per manager and releases its input bytes", async () => {
+  const { ASSETS } = require('./managed-formatters.js'), fs = require('node:fs');
+  const wasm = fs.readFileSync(require.resolve('@wasm-fmt/clang-format/wasm'));
+  const s = setup(); s.files.set(`plugin/components/${ASSETS.clang.name}`, wasm);
+  let reads = 0, calls = 0;
+  s.manager.adapter.readBinary = async path => { reads++; return s.files.get(path); };
+  const { formatClang } = require('./formatting.js');
+  const format = async (source, language, bytes) => { calls++; assert.equal(bytes?.length, calls === 1 ? wasm.length : undefined); return formatClang(source, language, bytes); };
+  await s.manager.format('int x;', 'c', format);
+  await s.manager.format('int y;', 'cpp', format);
+  assert.equal(reads, 1);
+  assert.equal(s.manager.clangSetup, null);
+  const next = setup(); next.files.set(`plugin/components/${ASSETS.clang.name}`, wasm);
+  let nextReads = 0; next.manager.adapter.readBinary = async path => { nextReads++; return next.files.get(path); };
+  await next.manager.format('int z;', 'c', async (_s,_l,bytes) => { assert.equal(bytes.length, wasm.length); return ''; });
+  assert.equal(nextReads, 1);
+});
+
+test("failed clang initialization can retry with verified bytes", async () => {
+  const { ASSETS } = require('./managed-formatters.js'), fs = require('node:fs');
+  const wasm = fs.readFileSync(require.resolve('@wasm-fmt/clang-format/wasm'));
+  const s = setup(); s.files.set(`plugin/components/${ASSETS.clang.name}`, wasm);
+  await assert.rejects(s.manager.format('int x;', 'c', async () => { throw Error('init failed'); }), /init failed/);
+  await s.manager.format('int x;', 'c', async (_s,_l,bytes) => { assert.equal(bytes.length, wasm.length); return ''; });
+});
 test("unsupported Python platforms reject before any component request", async () => {
   const fs = require("node:fs"), vm = require("node:vm");
   const context = { module: { exports: {} }, process: { platform: "darwin", arch: "arm64" } };

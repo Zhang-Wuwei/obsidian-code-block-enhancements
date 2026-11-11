@@ -412,8 +412,9 @@ class WrappedCode extends MarkdownRenderChild {
   }
 }
 
-function editorBlocks(state) {
+function editorBlocks(state, previous = []) {
   const events = new Map();
+  const reusable = new Map(previous.map(block => [block.cacheKey, block]));
   // 完整围栏索引不依赖宿主语法树的后台解析进度；正文内单行编辑可安全映射既有范围。
   const source = state.doc.toString();
   if (source.length <= 2000000) {
@@ -434,14 +435,20 @@ function editorBlocks(state) {
     if (kind === "begin") open = state.doc.lineAt(from);
     else if (open) {
       const close = state.doc.lineAt(from);
-      blocks.push(editorBlock(state, open, close));
+      blocks.push(editorBlock(state, open, close, source.slice(open.from, close.to), reusable));
       open = null;
     }
   }
   return blocks;
 }
 
-function editorBlock(state, open, close) {
+function editorBlock(state, open, close, text = state.doc.sliceString(open.from, close.to), reusable) {
+  const cacheKey = `${state.tabSize}\0${text}`;
+  const cached = reusable?.get(cacheKey);
+  if (cached) {
+    const shift = open.from - cached.open.from;
+    return { ...cached, open, close, regions: cached.regions.map(r => ({ from: r.from + shift, to: r.to + shift, line: r.line + shift })) };
+  }
   const metadata = /(?:`{3,}|~{3,})(.*)$/.exec(open.text)?.[1] || "";
   const options = parseOptions(metadata);
   const prefix = open.text.slice(0, open.text.search(/`{3,}|~{3,}/));
@@ -477,7 +484,7 @@ function editorBlock(state, open, close) {
       line: state.doc.lineAt(offsets[region.startLine]).from
     };
   }).filter(region => region.to > region.from);
-  return { open, close, options, regions, quoteCount };
+  return { open, close, options, regions, quoteCount, cacheKey };
 }
 
 // 只优化不能改变围栏/容器边界的单行编辑。换行、围栏、引用前缀及复杂 Markdown 改动走完整重建。
@@ -497,8 +504,13 @@ function remapEditorBlocks(blocks, update) {
       const oldPrefix = prefix.exec(before.text)?.[0], newPrefix = prefix.exec(after.text)?.[0];
       if (oldPrefix === undefined || oldPrefix !== newPrefix || fromA < before.from + oldPrefix.length) { safe = false; return; }
       touched.add(block);
-    } else if (!(/^\p{L}/u.test(before.text) && /^\p{L}/u.test(after.text)) || /[<>]/.test(before.text + after.text)) {
-      safe = false;
+    } else {
+      // 前缀不变的标题、列表、引用和强调文字不改变围栏归属；空行/HTML 等仍需完整检查。
+      const prefix = /^(?:[\t ]*(?:> ?|(?:[-+*]|\d{1,9}[.)])[\t ]+))*[\t ]*(?:#{1,6}[\t ]+)?(?:\*\*|__|\*|_)?/;
+      const oldPrefix = prefix.exec(before.text)[0], newPrefix = prefix.exec(after.text)[0];
+      const oldBody = before.text.slice(oldPrefix.length), newBody = after.text.slice(newPrefix.length);
+      const prose = /^[\p{L}\p{N}\u3000-\u303f\uff00-\uffef“”‘’]/u;
+      if (oldPrefix !== newPrefix || fromA < before.from + oldPrefix.length || !prose.test(oldBody) || !prose.test(newBody) || /[<>]/.test(oldBody + newBody)) safe = false;
     }
   }, true);
   if (!safe) return null;
@@ -622,7 +634,7 @@ function editorWrapping(plugin) {
       if (this.doc !== view.state.doc || !this.blocks || view.state.doc.length > 2000000 && this.tree !== syntaxTree(view.state)) {
         this.doc = view.state.doc;
         this.tree = syntaxTree(view.state);
-        this.blocks = editorBlocks(view.state);
+        this.blocks = editorBlocks(view.state, this.blocks);
       }
       const positions = new Set();
       const tree = syntaxTree(view.state);
@@ -953,12 +965,14 @@ module.exports = class CodeBlockEnhancements extends Plugin {
     for (const child of this.liveCalloutBlocks) {
       if (!child.code.isConnected) { this.removeChild(child); this.liveCalloutBlocks.delete(child); }
     }
+    const candidates = Array.from(editorView.dom.querySelectorAll(".callout pre > code")).filter(code =>
+      !code.classList.contains("qn-wrapped-code") && !code.querySelector(".qn-code-line") && !code.closest(".expressive-code,.mermaid,.block-language-dataview"));
+    if (!candidates.length) return;
     const owner = this.app.workspace.getLeavesOfType("markdown").find(l => l.view.editor?.cm === editorView);
     if (!owner?.view.file || owner.view.getMode() !== "source") return;
     const source = editorView.state.doc.toString();
     if (source.length > 2000000) return;
-    for (const code of editorView.dom.querySelectorAll(".callout pre > code")) {
-      if (code.querySelector(".qn-code-line") || code.closest(".expressive-code,.mermaid,.block-language-dataview")) continue;
+    for (const code of candidates) {
       const language = /(?:^|\s)language-([^\s]+)/.exec(code.className)?.[1]?.toLowerCase();
       const value = code.textContent.replace(/\r\n/g, "\n").replace(/\n$/, "");
       const matches = snapshotBlocks(source).filter(b => b.language === language && b.value === value);
@@ -1275,10 +1289,11 @@ module.exports = class CodeBlockEnhancements extends Plugin {
     for (const leaf of leaves) {
       const view = leaf.view;
       if (view.getMode?.() !== "preview" || !view.file) continue;
+      const candidates = Array.from(view.containerEl.querySelectorAll(".markdown-preview-view pre > code")).filter(code =>
+        !code.classList.contains("qn-wrapped-code") && !code.querySelector(".qn-code-line") && !code.closest(".expressive-code,.mermaid,.block-language-dataview"));
+      if (!candidates.length) continue;
       const source = view.getViewData();
-      for (const code of view.containerEl.querySelectorAll(".markdown-preview-view pre > code")) {
-        if (code.classList.contains("qn-wrapped-code") || code.querySelector(".qn-code-line") ||
-            code.closest(".expressive-code,.mermaid,.block-language-dataview")) continue;
+      for (const code of candidates) {
         const options = parseOptions(/(?:^|\s)language-([^\s]+)/.exec(code.className)?.[1]?.toLowerCase() || "");
         try { Object.assign(options, resolveReadingBlock(view, code, source)); } catch {
           // 无可靠位置时只增强显示；格式化按钮仍会在点击时校验源码位置。

@@ -175,6 +175,18 @@ test("quote preference dropdown preserves the stored boolean setting in both dir
   assert.equal(saves, 2);
 });
 
+test("already enhanced Callout and reading blocks do not request the complete source", t => {
+  const { plugin, view, document } = setup(t);
+  document.body.innerHTML = '<div class="markdown-preview-view"><pre><code class="qn-wrapped-code language-js"><span class="qn-code-line">const x=1;</span></code></pre></div>';
+  view.getMode = () => 'preview';
+  view.getViewData = () => assert.fail('unnecessary reading source request');
+  plugin.enhanceExistingPreviews();
+  document.body.innerHTML = '<div class="callout"><pre><code class="qn-wrapped-code"><span class="qn-code-line">x=1</span></code></pre></div>';
+  const editorView = { dom: document.body, state: { doc: { toString: () => assert.fail('unnecessary editor source request') } } };
+  view.getMode = () => 'source'; view.editor = { cm: editorView };
+  plugin.enhanceLiveCallouts(editorView);
+});
+
 test("enhancing existing previews never clears native sections or queues a full rerender", t => {
   const { plugin, document, view } = setup(t);
   document.body.innerHTML = '<div class="markdown-preview-view"><p>keep prose</p><pre><code class="language-js">const x=1;\n</code></pre></div>';

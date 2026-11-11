@@ -40,6 +40,57 @@ test("ordinary prose and IME replacements remap code ranges without reparsing Ma
   assert.deepEqual(h.counts, before);
 });
 
+test("stable Markdown prose prefixes allow incremental text edits without language reparsing", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  for (const prose of ['**普通中文正文**', '- 普通中文正文', '1. 普通中文正文', '> 普通中文正文', '## 普通中文正文', '（普通中文正文）', '2026 年普通中文正文']) {
+    const state = EditorState.create({ doc: prose + '\n\n```js\nfunction f(){\nreturn 1;\n}\n```' });
+    const blocks = h.editorBlocks(state), counts = { ...h.counts };
+    const tr = state.update({ changes: { from: prose.indexOf('正文'), insert: '新增' } });
+    const mapped = h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes });
+    assert.ok(mapped, prose);
+    assert.deepEqual(h.counts, counts);
+    assert.equal(JSON.stringify(mapped), JSON.stringify(h.editorBlocks(tr.state)));
+  }
+});
+
+test("Markdown prefix, blank-state and raw HTML edits still require full boundary checks", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  for (const [prose, from, to, insert] of [['> 中文正文',0,1,''], ['- 中文正文',0,1,'+'], ['1. 中文正文',0,1,'2'], ['**中文正文**',0,2,''], ['> 中文正文',2,6,''], ['> 文字 </script>',6,12,'other']]) {
+    const state = EditorState.create({ doc: prose + '\n\n```js\nconst x=1;\n```' }), blocks = h.editorBlocks(state);
+    const tr = state.update({ changes: { from, to, insert } });
+    assert.equal(h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes }), null, prose);
+  }
+});
+
+test("nested list marker changes rebuild fence boundaries in both directions", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  for (const [prefix, spaces] of [['- ', 6], ['- ', 7], ['- ', 8], ['1. ', 7], ['1. ', 8]]) {
+    const state = EditorState.create({ doc: prefix + '1foo\n' + (' '.repeat(spaces) + '```js\n') + ' '.repeat(spaces) + 'x=1\n' + ' '.repeat(spaces) + '```' });
+    const blocks = h.editorBlocks(state);
+    const tr = state.update({ changes: { from: prefix.length + 1, insert: '. ' } });
+    assert.equal(h.remapEditorBlocks(blocks, { startState: state, state: tr.state, changes: tr.changes }), null);
+    const fresh = h.editorBlocks(tr.state);
+    assert.notEqual(fresh.length, blocks.length);
+    const reverse = tr.state.update({ changes: { from: prefix.length + 1, to: prefix.length + 3, insert: '' } });
+    assert.equal(h.remapEditorBlocks(fresh, { startState: tr.state, state: reverse.state, changes: reverse.changes }), null);
+  }
+});
+
+test("structural rebuilds reuse only exact code slices and map duplicate block offsets correctly", () => {
+  const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
+  const code = '```js\nfunction f(){\nreturn 1;\n}\n```';
+  const state = EditorState.create({ doc: '中文正文\n\n' + code + '\n\n' + code });
+  const blocks = h.editorBlocks(state), count = h.counts.folds;
+  const tr = state.update({ changes: { from: 2, insert: '\n' } });
+  const rebuilt = h.editorBlocks(tr.state, blocks);
+  assert.equal(h.counts.folds, count);
+  assert.equal(JSON.stringify(rebuilt), JSON.stringify(h.editorBlocks(tr.state)));
+  const changed = tr.state.update({ changes: { from: tr.state.doc.toString().indexOf('return 1') + 7, to: tr.state.doc.toString().indexOf('return 1') + 8, insert: '2' } });
+  const before = h.counts.folds;
+  h.editorBlocks(changed.state, rebuilt);
+  assert.equal(h.counts.folds, before + 1);
+});
+
 test("code edits refresh only their own fold ranges; structural edits refuse the fast path", () => {
   const { EditorState } = require("@codemirror/state"), h = incrementalHarness();
   const state = EditorState.create({ doc: '中文正文\n\n```js\nfunction run() {\n  return 1;\n}\n```\n\n```python\ndef run():\n  return 1\n```' });
